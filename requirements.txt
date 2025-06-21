@@ -3,3 +3,4 @@ gspread
 google-auth
 pandas
 pillow
+streamlit>=1.10.0
