@@ -101,7 +101,7 @@ if "players" not in st.session_state:
     st.session_state.stage = 0
     st.session_state.scores = {}
     st.session_state.started = False
-    st.session_state.confirm_clicks = 0  # Counts how many times confirm was clicked for current question
+    st.session_state.confirm_clicks = 0
 
 if not st.session_state.started:
     st.title("🧭 Van Egypte naar Kanaän")
@@ -113,7 +113,6 @@ if not st.session_state.started:
         st.session_state.scores = {name.strip(): 0}
         st.session_state.started = True
         st.session_state.confirm_clicks = 0
-        st.experimental_rerun()
 
     st.markdown("📊 Bekijk het live scorebord hieronder:")
     if st.button("📄 Open Google Sheets"):
@@ -133,20 +132,25 @@ if stage < len(locations):
     if st.button("Bevestigen"):
         st.session_state.confirm_clicks += 1
 
-        if st.session_state.confirm_clicks == 1:
-            # Show immediate feedback but do not advance yet
-            if choice == loc["answer"]:
-                st.success("Goed gedaan!")
+    if st.session_state.confirm_clicks == 1:
+        if choice == loc["answer"]:
+            st.success("Goed gedaan!")
+            # Only increase score once per question, so track with a flag
+            if f"answered_{stage}" not in st.session_state:
                 st.session_state.scores[player] += 1
-            else:
-                st.error("Helaas, dat is niet correct.")
+                st.session_state[f"answered_{stage}"] = True
+        else:
+            st.error("Helaas, dat is niet correct.")
 
-            st.write("Klik nog een keer op 'Bevestigen' om verder te gaan.")
-        elif st.session_state.confirm_clicks >= 2:
-            # Move to next player or next stage
-            st.session_state.confirm_clicks = 0
-            st.session_state.stage += 1
-            st.experimental_rerun()
+        st.info("Klik nog een keer op 'Bevestigen' om verder te gaan.")
+
+    elif st.session_state.confirm_clicks >= 2:
+        # Reset for next question
+        st.session_state.confirm_clicks = 0
+        st.session_state.stage += 1
+        # Remove answered flag for next stage (if any)
+        if f"answered_{stage}" in st.session_state:
+            del st.session_state[f"answered_{stage}"]
 
 else:
     st.balloons()
@@ -168,4 +172,5 @@ else:
     if st.button("🔁 Opnieuw spelen"):
         for key in list(st.session_state.keys()):
             del st.session_state[key]
-        st.experimental_rerun()
+        # no st.experimental_rerun() — just natural rerun on next interaction
+
