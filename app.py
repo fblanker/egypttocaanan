@@ -156,4 +156,44 @@ if stage < len(locations):
                 st.session_state.scores[player] += 1
                 st.session_state.answered_flags[stage] = True
         else:
-            st.error("Helaas, dat is niet correct
+            st.error("Helaas, dat is niet correct.")
+
+        st.info("Klik nog een keer op 'Bevestigen' om verder te gaan.")
+
+    elif st.session_state.confirm_clicks >= 2:
+        st.session_state.confirm_clicks = 0
+        st.session_state.stage += 1
+        # reset answered flag for next question (optional)
+        if st.session_state.answered_flags.get(stage, False):
+            del st.session_state.answered_flags[stage]
+
+else:
+    st.balloons()
+    st.header("🎉 Jullie hebben Kanaän bereikt!")
+    st.subheader("🏆 Jouw score:")
+
+    score = st.session_state.scores[player]
+    st.write(f"**{player}**: {score} punten")
+
+    if not st.session_state.scores_uploaded:
+        with st.spinner("Scores uploaden naar Google Sheets..."):
+            leaderboard_data = update_google_leaderboard(st.session_state.scores)
+        st.session_state.scores_uploaded = True
+    else:
+        # show cached leaderboard data to avoid multiple uploads
+        if 'leaderboard_data' in st.session_state:
+            leaderboard_data = st.session_state.leaderboard_data
+        else:
+            leaderboard_data = []
+
+    if leaderboard_data:
+        st.session_state.leaderboard_data = leaderboard_data
+        st.subheader("🌍 Publiek scorebord")
+        st.table(pd.DataFrame(leaderboard_data))
+
+    if st.button("📄 Bekijk Google Sheets"):
+        st.markdown(f"[Open scorebord 🡥]({GOOGLE_SHEET_URL})")
+
+    if st.button("🔁 Opnieuw spelen"):
+        reset_state()
+        st.experimental_rerun()  # If your Streamlit version supports this, else remove
