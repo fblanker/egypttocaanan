@@ -9,7 +9,6 @@ from datetime import date
 LEADERBOARD_SHEET_NAME = "From Egypt to Canaan Leaderboard"
 GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1QRG2EApQpkA4eWjmg7ZhWJJjRd52yZPpwCW_cgK4woE"
 
-
 # ------------------- Game Data -------------------
 locations = [
     {
