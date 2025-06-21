@@ -9,6 +9,14 @@ from datetime import date
 LEADERBOARD_SHEET_NAME = "From Egypt to Canaan Leaderboard"
 GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1QRG2EApQpkA4eWjmg7ZhWJJjRd52yZPpwCW_cgK4woE"
 
+import json
+creds_dict = st.secrets["google"]
+st.write("Loaded credentials keys:", list(creds_dict.keys()))
+st.write("Private key preview:", creds_dict["private_key"][:30] + "...")
+
+
+
+
 # ------------------- Game Data -------------------
 locations = [
     {
