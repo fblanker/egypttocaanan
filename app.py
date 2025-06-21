@@ -88,12 +88,15 @@ def update_google_leaderboard(new_scores):
     return rows
 
 # ------------------- Streamlit Game -------------------
+
+# Initialize session state variables
 if "players" not in st.session_state:
     st.session_state.players = []
     st.session_state.current_player = 0
     st.session_state.stage = 0
     st.session_state.scores = {}
     st.session_state.started = False
+    st.session_state.rerun = False  # Added rerun toggle
 
 if not st.session_state.started:
     st.title("🧭 Van Egypte naar Kanaän")
@@ -108,8 +111,8 @@ if not st.session_state.started:
         st.session_state.players = names
         st.session_state.scores = {name: 0 for name in names}
         st.session_state.started = True
-        if st.button("Rerun"):
-        st.session_state['rerun'] = not st.session_state.get('rerun', False)
+        # Trigger rerun by toggling session_state
+        st.session_state.rerun = not st.session_state.rerun
 
     st.markdown("📊 Bekijk het live scorebord hieronder:")
     if st.button("📄 Open Google Sheets"):
@@ -137,8 +140,9 @@ if stage < len(locations):
         if st.session_state.current_player >= len(st.session_state.players):
             st.session_state.current_player = 0
             st.session_state.stage += 1
-            if st.button("Rerun"):
-            st.session_state['rerun'] = not st.session_state.get('rerun', False)
+
+        # Trigger rerun by toggling session_state
+        st.session_state.rerun = not st.session_state.rerun
 
 else:
     st.balloons()
@@ -161,5 +165,5 @@ else:
     if st.button("🔁 Opnieuw spelen"):
         for key in list(st.session_state.keys()):
             del st.session_state[key]
-        if st.button("Rerun"):
-        st.session_state['rerun'] = not st.session_state.get('rerun', False)
+        # Reset rerun toggle to force rerun
+        st.session_state.rerun = not st.session_state.rerun
