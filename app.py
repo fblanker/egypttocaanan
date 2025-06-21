@@ -108,7 +108,8 @@ if not st.session_state.started:
         st.session_state.players = names
         st.session_state.scores = {name: 0 for name in names}
         st.session_state.started = True
-        st.experimental_rerun()
+        if st.button("Rerun"):
+        st.session_state['rerun'] = not st.session_state.get('rerun', False)
 
     st.markdown("📊 Bekijk het live scorebord hieronder:")
     if st.button("📄 Open Google Sheets"):
@@ -136,7 +137,8 @@ if stage < len(locations):
         if st.session_state.current_player >= len(st.session_state.players):
             st.session_state.current_player = 0
             st.session_state.stage += 1
-        st.experimental_rerun()
+            if st.button("Rerun"):
+            st.session_state['rerun'] = not st.session_state.get('rerun', False)
 
 else:
     st.balloons()
@@ -159,4 +161,5 @@ else:
     if st.button("🔁 Opnieuw spelen"):
         for key in list(st.session_state.keys()):
             del st.session_state[key]
-        st.experimental_rerun()
+        if st.button("Rerun"):
+        st.session_state['rerun'] = not st.session_state.get('rerun', False)
