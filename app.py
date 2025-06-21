@@ -89,14 +89,16 @@ def update_google_leaderboard(new_scores):
 
 # ------------------- Streamlit Game -------------------
 
-# Initialize session state variables
+# Initialize session state variables (including 'rerun')
 if "players" not in st.session_state:
     st.session_state.players = []
     st.session_state.current_player = 0
     st.session_state.stage = 0
     st.session_state.scores = {}
     st.session_state.started = False
-    st.session_state.rerun = False  # Added rerun toggle
+
+if "rerun" not in st.session_state:
+    st.session_state.rerun = False
 
 if not st.session_state.started:
     st.title("🧭 Van Egypte naar Kanaän")
