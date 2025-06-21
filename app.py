@@ -55,16 +55,13 @@ locations = [
     }
 ]
 
-
 # ------------------- Google Sheets Functions -------------------
 def get_gspread_client():
     creds_dict = st.secrets["google"]
-
     scopes = [
         'https://www.googleapis.com/auth/spreadsheets',
         'https://www.googleapis.com/auth/drive'
     ]
-
     creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     client = gspread.authorize(creds)
     return client
@@ -97,32 +94,26 @@ def update_google_leaderboard(new_scores):
 
 # ------------------- Streamlit Game -------------------
 
-# Initialize session state variables (including 'rerun')
+# Initialize session state variables
 if "players" not in st.session_state:
     st.session_state.players = []
     st.session_state.current_player = 0
     st.session_state.stage = 0
     st.session_state.scores = {}
     st.session_state.started = False
-
-if "rerun" not in st.session_state:
-    st.session_state.rerun = False
+    st.session_state.confirm_clicks = 0  # Counts how many times confirm was clicked for current question
 
 if not st.session_state.started:
     st.title("🧭 Van Egypte naar Kanaän")
-    st.subheader("Voer de namen in van de spelers (max 4):")
-    names = []
-    for i in range(4):
-        name = st.text_input(f"Speler {i+1} naam:", key=f"player_{i}")
-        if name:
-            names.append(name)
+    st.subheader("Voer de naam in van de speler:")
+    name = st.text_input("Speler naam:", key="player_name")
 
-    if st.button("Start het spel") and names:
-        st.session_state.players = names
-        st.session_state.scores = {name: 0 for name in names}
+    if st.button("Start het spel") and name.strip() != "":
+        st.session_state.players = [name.strip()]  # Only one player
+        st.session_state.scores = {name.strip(): 0}
         st.session_state.started = True
-        # Trigger rerun by toggling session_state
-        st.session_state.rerun = not st.session_state.rerun
+        st.session_state.confirm_clicks = 0
+        st.experimental_rerun()
 
     st.markdown("📊 Bekijk het live scorebord hieronder:")
     if st.button("📄 Open Google Sheets"):
@@ -130,38 +121,40 @@ if not st.session_state.started:
     st.stop()
 
 stage = st.session_state.stage
-player = st.session_state.players[st.session_state.current_player]
+player = st.session_state.players[0]  # only one player
 
 if stage < len(locations):
     loc = locations[stage]
     st.header(f"📍 Locatie {stage+1}: {loc['name']} ({player} is aan de beurt)")
-    st.image(Image.open(loc["image"]), use_column_width=True)
+    st.image(Image.open(loc["image"]), use_container_width=True)
     st.subheader(loc["question"])
     choice = st.radio("Kies je antwoord:", loc["options"], key=f"choice_{stage}_{player}")
 
     if st.button("Bevestigen"):
-        if choice == loc["answer"]:
-            st.success("Goed gedaan!")
-            st.session_state.scores[player] += 1
-        else:
-            st.error("Helaas, dat is niet correct.")
+        st.session_state.confirm_clicks += 1
 
-        st.session_state.current_player += 1
-        if st.session_state.current_player >= len(st.session_state.players):
-            st.session_state.current_player = 0
+        if st.session_state.confirm_clicks == 1:
+            # Show immediate feedback but do not advance yet
+            if choice == loc["answer"]:
+                st.success("Goed gedaan!")
+                st.session_state.scores[player] += 1
+            else:
+                st.error("Helaas, dat is niet correct.")
+
+            st.write("Klik nog een keer op 'Bevestigen' om verder te gaan.")
+        elif st.session_state.confirm_clicks >= 2:
+            # Move to next player or next stage
+            st.session_state.confirm_clicks = 0
             st.session_state.stage += 1
-
-        # Trigger rerun by toggling session_state
-        st.session_state.rerun = not st.session_state.rerun
+            st.experimental_rerun()
 
 else:
     st.balloons()
     st.header("🎉 Jullie hebben Kanaän bereikt!")
-    st.subheader("🏆 Jullie scores:")
+    st.subheader("🏆 Jouw score:")
 
-    sorted_scores = sorted(st.session_state.scores.items(), key=lambda x: x[1], reverse=True)
-    for i, (name, score) in enumerate(sorted_scores):
-        st.write(f"{i+1}. **{name}**: {score} punten")
+    score = st.session_state.scores[player]
+    st.write(f"**{player}**: {score} punten")
 
     with st.spinner("Scores uploaden naar Google Sheets..."):
         leaderboard_data = update_google_leaderboard(st.session_state.scores)
@@ -175,5 +168,4 @@ else:
     if st.button("🔁 Opnieuw spelen"):
         for key in list(st.session_state.keys()):
             del st.session_state[key]
-        # Reset rerun toggle to force rerun
-        st.session_state.rerun = not st.session_state.rerun
+        st.experimental_rerun()
