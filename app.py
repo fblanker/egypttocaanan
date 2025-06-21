@@ -55,11 +55,19 @@ locations = [
     }
 ]
 
+
 # ------------------- Google Sheets Functions -------------------
 def get_gspread_client():
     creds_dict = st.secrets["google"]
-    creds = Credentials.from_service_account_info(creds_dict)
-    return gspread.authorize(creds)
+
+     scopes = [
+        'https://www.googleapis.com/auth/spreadsheets',
+        'https://www.googleapis.com/auth/drive'
+    ]
+
+    creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+    client = gspread.authorize(creds)
+    return client
 
 def update_google_leaderboard(new_scores):
     client = get_gspread_client()
