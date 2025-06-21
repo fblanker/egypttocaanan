@@ -97,11 +97,25 @@ def update_google_leaderboard(new_scores):
 # Initialize session state variables
 if "players" not in st.session_state:
     st.session_state.players = []
-    st.session_state.current_player = 0
-    st.session_state.stage = 0
+if "scores" not in st.session_state:
     st.session_state.scores = {}
+if "stage" not in st.session_state:
+    st.session_state.stage = 0
+if "started" not in st.session_state:
     st.session_state.started = False
+if "confirm_clicks" not in st.session_state:
     st.session_state.confirm_clicks = 0
+if "scores_uploaded" not in st.session_state:
+    st.session_state.scores_uploaded = False
+# To prevent double scoring per question
+if "answered_flags" not in st.session_state:
+    st.session_state.answered_flags = {}
+
+# Clear irrelevant state on restart
+def reset_state():
+    for key in ["players", "scores", "stage", "started", "confirm_clicks", "scores_uploaded", "answered_flags"]:
+        if key in st.session_state:
+            del st.session_state[key]
 
 if not st.session_state.started:
     st.title("🧭 Van Egypte naar Kanaän")
@@ -109,10 +123,13 @@ if not st.session_state.started:
     name = st.text_input("Speler naam:", key="player_name")
 
     if st.button("Start het spel") and name.strip() != "":
+        reset_state()
         st.session_state.players = [name.strip()]  # Only one player
         st.session_state.scores = {name.strip(): 0}
         st.session_state.started = True
         st.session_state.confirm_clicks = 0
+        st.session_state.scores_uploaded = False
+        st.session_state.answered_flags = {}
 
     st.markdown("📊 Bekijk het live scorebord hieronder:")
     if st.button("📄 Open Google Sheets"):
@@ -135,42 +152,8 @@ if stage < len(locations):
     if st.session_state.confirm_clicks == 1:
         if choice == loc["answer"]:
             st.success("Goed gedaan!")
-            # Only increase score once per question, so track with a flag
-            if f"answered_{stage}" not in st.session_state:
+            if not st.session_state.answered_flags.get(stage, False):
                 st.session_state.scores[player] += 1
-                st.session_state[f"answered_{stage}"] = True
+                st.session_state.answered_flags[stage] = True
         else:
-            st.error("Helaas, dat is niet correct.")
-
-        st.info("Klik nog een keer op 'Bevestigen' om verder te gaan.")
-
-    elif st.session_state.confirm_clicks >= 2:
-        # Reset for next question
-        st.session_state.confirm_clicks = 0
-        st.session_state.stage += 1
-        # Remove answered flag for next stage (if any)
-        if f"answered_{stage}" in st.session_state:
-            del st.session_state[f"answered_{stage}"]
-
-else:
-    st.balloons()
-    st.header("🎉 Jullie hebben Kanaän bereikt!")
-    st.subheader("🏆 Jouw score:")
-
-    score = st.session_state.scores[player]
-    st.write(f"**{player}**: {score} punten")
-
-    with st.spinner("Scores uploaden naar Google Sheets..."):
-        leaderboard_data = update_google_leaderboard(st.session_state.scores)
-
-    st.subheader("🌍 Publiek scorebord")
-    st.table(pd.DataFrame(leaderboard_data))
-
-    if st.button("📄 Bekijk Google Sheets"):
-        st.markdown(f"[Open scorebord 🡥]({GOOGLE_SHEET_URL})")
-
-    if st.button("🔁 Opnieuw spelen"):
-        for key in list(st.session_state.keys()):
-            del st.session_state[key]
-        # no st.experimental_rerun() — just natural rerun on next interaction
-
+            st.error("Helaas, dat is niet correct
