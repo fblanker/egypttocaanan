@@ -60,7 +60,7 @@ locations = [
 def get_gspread_client():
     creds_dict = st.secrets["google"]
 
-     scopes = [
+    scopes = [
         'https://www.googleapis.com/auth/spreadsheets',
         'https://www.googleapis.com/auth/drive'
     ]
