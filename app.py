@@ -6,7 +6,7 @@ from google.oauth2.service_account import Credentials
 from datetime import date
 
 # ------------------- Config -------------------
-LEADERBOARD_SHEET_NAME = "From Egypt to Canaan Leaderboard"
+LEADERBOARD_SHEET_NAME = "From Egypt to Canaan Leaderboard voor Tante Coco"
 GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1QRG2EApQpkA4eWjmg7ZhWJJjRd52yZPpwCW_cgK4woE"
 
 # ------------------- Game Data -------------------
