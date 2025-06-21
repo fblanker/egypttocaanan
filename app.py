@@ -1,16 +1,13 @@
 import streamlit as st
 from PIL import Image
-import random
 import pandas as pd
-import os
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+from google.oauth2.service_account import Credentials
 from datetime import date
 
 # ------------------- Config -------------------
 LEADERBOARD_SHEET_NAME = "From Egypt to Canaan Leaderboard"
-CREDENTIALS_FILE = "credentials.json"
-GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID_HERE"
+GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1QRG2EApQpkA4eWjmg7ZhWJJjRd52yZPpwCW_cgK4woE"
 
 # ------------------- Game Data -------------------
 locations = [
@@ -58,13 +55,15 @@ locations = [
     }
 ]
 
-# ------------------- Leaderboard Logic -------------------
-def update_google_leaderboard(new_scores):
-    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    creds = ServiceAccountCredentials.from_json_keyfile_name(CREDENTIALS_FILE, scope)
-    client = gspread.authorize(creds)
-    sheet = client.open(LEADERBOARD_SHEET_NAME).sheet1
+# ------------------- Google Sheets Functions -------------------
+def get_gspread_client():
+    creds_dict = st.secrets["google"]
+    creds = Credentials.from_service_account_info(creds_dict)
+    return gspread.authorize(creds)
 
+def update_google_leaderboard(new_scores):
+    client = get_gspread_client()
+    sheet = client.open(LEADERBOARD_SHEET_NAME).sheet1
     existing = sheet.get_all_records()
     rows = existing.copy()
 
@@ -72,34 +71,23 @@ def update_google_leaderboard(new_scores):
         today = str(date.today())
         updated = False
         for row in rows:
-            if row['name'] == name:
-                if score > int(row['score']):
-                    row['score'] = score
-                    row['date'] = today
+            if row["name"] == name:
+                if score > int(row["score"]):
+                    row["score"] = score
+                    row["date"] = today
                 updated = True
                 break
         if not updated:
             rows.append({"name": name, "score": score, "date": today})
 
-    # Top 10 only
-    rows = sorted(rows, key=lambda x: x['score'], reverse=True)[:10]
-
-    # Save back to sheet
+    rows = sorted(rows, key=lambda x: x["score"], reverse=True)[:10]
     sheet.clear()
     sheet.append_row(["name", "score", "date"])
     for row in rows:
         sheet.append_row([row["name"], row["score"], row["date"]])
-
     return rows
 
-def get_google_leaderboard():
-    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    creds = ServiceAccountCredentials.from_json_keyfile_name(CREDENTIALS_FILE, scope)
-    client = gspread.authorize(creds)
-    sheet = client.open(LEADERBOARD_SHEET_NAME).sheet1
-    return pd.DataFrame(sheet.get_all_records())
-
-# ------------------- Session Setup -------------------
+# ------------------- Streamlit Game -------------------
 if "players" not in st.session_state:
     st.session_state.players = []
     st.session_state.current_player = 0
@@ -107,7 +95,6 @@ if "players" not in st.session_state:
     st.session_state.scores = {}
     st.session_state.started = False
 
-# ------------------- Start Screen -------------------
 if not st.session_state.started:
     st.title("🧭 Van Egypte naar Kanaän")
     st.subheader("Voer de namen in van de spelers (max 4):")
@@ -126,18 +113,15 @@ if not st.session_state.started:
     st.markdown("📊 Bekijk het live scorebord hieronder:")
     if st.button("📄 Open Google Sheets"):
         st.markdown(f"[Klik hier om het scorebord te openen 🡥]({GOOGLE_SHEET_URL})")
-
     st.stop()
 
-# ------------------- Game Logic -------------------
 stage = st.session_state.stage
 player = st.session_state.players[st.session_state.current_player]
 
 if stage < len(locations):
     loc = locations[stage]
     st.header(f"📍 Locatie {stage+1}: {loc['name']} ({player} is aan de beurt)")
-    img = Image.open(loc["image"])
-    st.image(img, use_column_width=True)
+    st.image(Image.open(loc["image"]), use_column_width=True)
     st.subheader(loc["question"])
     choice = st.radio("Kies je antwoord:", loc["options"], key=f"choice_{stage}_{player}")
 
@@ -153,6 +137,7 @@ if stage < len(locations):
             st.session_state.current_player = 0
             st.session_state.stage += 1
         st.experimental_rerun()
+
 else:
     st.balloons()
     st.header("🎉 Jullie hebben Kanaän bereikt!")
@@ -163,11 +148,10 @@ else:
         st.write(f"{i+1}. **{name}**: {score} punten")
 
     with st.spinner("Scores uploaden naar Google Sheets..."):
-        rows = update_google_leaderboard(st.session_state.scores)
+        leaderboard_data = update_google_leaderboard(st.session_state.scores)
 
     st.subheader("🌍 Publiek scorebord")
-    leaderboard_df = pd.DataFrame(rows)
-    st.table(leaderboard_df)
+    st.table(pd.DataFrame(leaderboard_data))
 
     if st.button("📄 Bekijk Google Sheets"):
         st.markdown(f"[Open scorebord 🡥]({GOOGLE_SHEET_URL})")
