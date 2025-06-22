@@ -16,55 +16,54 @@ locations = [
         "image": "images/egypt.jpg",
         "question": "Wie leidde het volk Israël uit Egypte?",
         "options": ["Mozes", "David", "Abraham"],
-        "answer": "Mozes"
+        "answer": "Mozes",
     },
     {
         "name": "Rode Zee",
         "image": "images/redsea.jpg",
         "question": "Wat gebeurde er bij de Rode Zee?",
         "options": ["Ze bouwden een boot", "Ze gingen er droog doorheen", "Ze keerden terug"],
-        "answer": "Ze gingen er droog doorheen"
+        "answer": "Ze gingen er droog doorheen",
     },
     {
         "name": "Sinaï",
         "image": "images/sinai.jpg",
         "question": "Wat gaf God aan Mozes op de berg Sinaï?",
         "options": ["Een zwaard", "De Tien Geboden", "Een kroon"],
-        "answer": "De Tien Geboden"
+        "answer": "De Tien Geboden",
     },
     {
         "name": "Woestijn",
         "image": "images/desert.jpg",
         "question": "Wat gaf God te eten in de woestijn?",
         "options": ["Manna", "Vijgen", "Vis"],
-        "answer": "Manna"
+        "answer": "Manna",
     },
     {
         "name": "Jordaan",
         "image": "images/jordan.jpg",
         "question": "Wie leidde het volk door de Jordaan?",
         "options": ["Jozua", "Mozes", "Aäron"],
-        "answer": "Jozua"
+        "answer": "Jozua",
     },
     {
         "name": "Kanaän",
         "image": "images/canaan.jpg",
         "question": "Hoe werd Kanaän genoemd?",
         "options": ["Land van wanhoop", "Land van melk en honing", "Land van oorlog"],
-        "answer": "Land van melk en honing"
-    }
+        "answer": "Land van melk en honing",
+    },
 ]
 
 # ------------------- Google Sheets Functions -------------------
 def get_gspread_client():
     creds_dict = st.secrets["google"]
     scopes = [
-        'https://www.googleapis.com/auth/spreadsheets',
-        'https://www.googleapis.com/auth/drive'
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive",
     ]
     creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
-    client = gspread.authorize(creds)
-    return client
+    return gspread.authorize(creds)
 
 def update_google_leaderboard(new_scores):
     client = get_gspread_client()
@@ -92,46 +91,67 @@ def update_google_leaderboard(new_scores):
         sheet.append_row([row["name"], row["score"], row["date"]])
     return rows
 
-# ------------------- Streamlit Game -------------------
-
-# Initialize session state variables
-if "players" not in st.session_state:
-    st.session_state.players = []
-if "scores" not in st.session_state:
-    st.session_state.scores = {}
-if "stage" not in st.session_state:
-    st.session_state.stage = 0
-if "started" not in st.session_state:
-    st.session_state.started = False
-if "answered" not in st.session_state:
-    st.session_state.answered = False
-if "scores_uploaded" not in st.session_state:
-    st.session_state.scores_uploaded = False
-if "answered_flags" not in st.session_state:
-    st.session_state.answered_flags = {}
-
+# ------------------- State Management -------------------
 def reset_state():
-    for key in ["players", "scores", "stage", "started", "scores_uploaded", "answered_flags", "answered"]:
-        if key in st.session_state:
-            del st.session_state[key]
+    st.session_state.update({
+        "input_name": "",
+        "players": [],
+        "scores": {},
+        "stage": 0,
+        "started": False,
+        "answered": False,
+        "answered_flags": {},
+        "scores_uploaded": False,
+        "leaderboard_data": [],
+    })
 
+def start_game():
+    name = st.session_state.input_name.strip()
+    if name:
+        st.session_state.players = [name]
+        st.session_state.scores = {name: 0}
+        st.session_state.started = True
+        st.session_state.stage = 0
+        st.session_state.answered = False
+        st.session_state.answered_flags = {}
+        st.session_state.scores_uploaded = False
+
+def submit_answer():
+    stage = st.session_state.stage
+    player = st.session_state.players[0]
+    loc = locations[stage]
+    choice = st.session_state[f"choice_{stage}"]
+
+    if choice == loc["answer"]:
+        if not st.session_state.answered_flags.get(stage, False):
+            st.session_state.scores[player] += 1
+        st.success("Goed gedaan!")
+    else:
+        st.error("Helaas, dat is niet correct.")
+
+    st.session_state.answered = True
+    st.session_state.answered_flags[stage] = True
+
+def next_question():
+    st.session_state.stage += 1
+    st.session_state.answered = False
+
+# ------------------- Main -------------------
+# Initialize state
+if "started" not in st.session_state:
+    reset_state()
+
+# Start screen
 if not st.session_state.started:
     st.title("🧭 Van Egypte naar Kanaän")
-    name = st.text_input("Voer je naam in:")
-    if st.button("Start het spel") and name.strip() != "":
-        reset_state()
-        st.session_state.players = [name.strip()]
-        st.session_state.scores = {name.strip(): 0}
-        st.session_state.started = True
-        st.session_state.answered = False
-        st.session_state.scores_uploaded = False
-        st.session_state.answered_flags = {}
+    st.text_input("Voer je naam in:", key="input_name")
+    st.button("Start het spel", key="btn_start", on_click=start_game)
 
-    st.markdown("📊 Bekijk het live scorebord hieronder:")
-    if st.button("📄 Open Google Sheets"):
-        st.markdown(f"[Klik hier om het scorebord te openen 🡥]({GOOGLE_SHEET_URL})")
+    st.markdown("📄  [Open Google Sheets 🡥](%s)" % GOOGLE_SHEET_URL)
+
     st.stop()
 
+# Gameplay
 stage = st.session_state.stage
 player = st.session_state.players[0]
 
@@ -140,45 +160,28 @@ if stage < len(locations):
     st.header(f"📍 Locatie {stage+1}: {loc['name']} ({player} is aan de beurt)")
     st.image(Image.open(loc["image"]), use_container_width=True)
     st.subheader(loc["question"])
-    choice = st.radio("Kies je antwoord:", loc["options"], key=f"choice_{stage}_{player}")
+
+    st.radio(
+        "Kies je antwoord:",
+        loc["options"],
+        key=f"choice_{stage}"
+    )
 
     if not st.session_state.answered:
-        if st.button("Beantwoord"):
-            if choice == loc["answer"]:
-                st.success("Goed gedaan!")
-                if not st.session_state.answered_flags.get(stage, False):
-                    st.session_state.scores[player] += 1
-                    st.session_state.answered_flags[stage] = True
-            else:
-                st.error("Helaas, dat is niet correct.")
-            st.session_state.answered = True
+        st.button(
+            "Beantwoord",
+            key=f"btn_answer_{stage}",
+            on_click=submit_answer
+        )
     else:
-        if st.button("Volgende vraag"):
-            st.session_state.answered = False
-            st.session_state.stage += 1
-            if st.session_state.answered_flags.get(stage, False):
-                del st.session_state.answered_flags[stage]
+        st.button(
+            "Volgende vraag",
+            key=f"btn_next_{stage}",
+            on_click=next_question
+        )
 
 else:
+    # End screen
     st.balloons()
     st.header("🎉 Jullie hebben Kanaän bereikt!")
-    st.subheader(f"🏆 {player}'s score: {st.session_state.scores[player]} punten")
-
-    if not st.session_state.scores_uploaded:
-        with st.spinner("Scores uploaden naar Google Sheets..."):
-            leaderboard_data = update_google_leaderboard(st.session_state.scores)
-        st.session_state.scores_uploaded = True
-        st.session_state.leaderboard_data = leaderboard_data
-    else:
-        leaderboard_data = st.session_state.get('leaderboard_data', [])
-
-    if leaderboard_data:
-        st.subheader("🌍 Publiek scorebord")
-        st.table(pd.DataFrame(leaderboard_data))
-
-    if st.button("📄 Bekijk Google Sheets"):
-        st.markdown(f"[Open scorebord 🡥]({GOOGLE_SHEET_URL})")
-
-    if st.button("🔁 Opnieuw spelen"):
-        reset_state()
-        st.experimental_rerun()
+    st.subheader(f"🏆 {player}'s score: {st.session_state.scores[player]} punten
