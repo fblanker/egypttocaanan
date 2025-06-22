@@ -47,7 +47,11 @@ def get_gspread_client():
 
 def update_google_leaderboard(new_scores):
     client = get_gspread_client()
-    sheet = client.open(LEADERBOARD_SHEET_NAME).sheet1
+    # pick one of these two—do not call client.open(...) by title
+    sheet = client.open_by_url(GOOGLE_SHEET_URL).sheet1
+    # OR
+    # sheet = client.open_by_key("1QRG2EApQpkA4eWjmg7ZhWJJjRd52yZPpwCW_cgK4woE").sheet1
+
     existing = sheet.get_all_records()
     rows = existing.copy()
     today = str(date.today())
@@ -70,6 +74,7 @@ def update_google_leaderboard(new_scores):
         sheet.append_row([r["name"], r["score"], r["date"]])
 
     return rows
+
 
 # ------------------- State Helpers -------------------
 def reset_state():
