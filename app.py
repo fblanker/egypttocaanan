@@ -25,27 +25,7 @@ locations = [
         "options": ["Ze bouwden een boot", "Ze gingen er droog doorheen", "Ze keerden terug"],
         "answer": "Ze gingen er droog doorheen",
     },
-    {
-        "name": "Sinaï",
-        "image": "images/sinai.jpg",
-        "question": "Wat gaf God aan Mozes op de berg Sinaï?",
-        "options": ["Een zwaard", "De Tien Geboden", "Een kroon"],
-        "answer": "De Tien Geboden",
-    },
-    {
-        "name": "Woestijn",
-        "image": "images/desert.jpg",
-        "question": "Wat gaf God te eten in de woestijn?",
-        "options": ["Manna", "Vijgen", "Vis"],
-        "answer": "Manna",
-    },
-    {
-        "name": "Jordaan",
-        "image": "images/jordan.jpg",
-        "question": "Wie leidde het volk door de Jordaan?",
-        "options": ["Jozua", "Mozes", "Aäron"],
-        "answer": "Jozua",
-    },
+    # … your other locations …
     {
         "name": "Kanaän",
         "image": "images/canaan.jpg",
@@ -55,7 +35,7 @@ locations = [
     },
 ]
 
-# ------------------- Google Sheets Functions -------------------
+# ------------------- Google Sheets -------------------
 def get_gspread_client():
     creds_dict = st.secrets["google"]
     scopes = [
@@ -70,118 +50,113 @@ def update_google_leaderboard(new_scores):
     sheet = client.open(LEADERBOARD_SHEET_NAME).sheet1
     existing = sheet.get_all_records()
     rows = existing.copy()
+    today = str(date.today())
 
     for name, score in new_scores.items():
-        today = str(date.today())
-        updated = False
-        for row in rows:
-            if row["name"] == name:
-                if score > int(row["score"]):
-                    row["score"] = score
-                    row["date"] = today
-                updated = True
-                break
-        if not updated:
+        found = False
+        for r in rows:
+            if r["name"] == name:
+                found = True
+                if score > int(r["score"]):
+                    r["score"] = score
+                    r["date"] = today
+        if not found:
             rows.append({"name": name, "score": score, "date": today})
 
     rows = sorted(rows, key=lambda x: x["score"], reverse=True)[:10]
     sheet.clear()
     sheet.append_row(["name", "score", "date"])
-    for row in rows:
-        sheet.append_row([row["name"], row["score"], row["date"]])
+    for r in rows:
+        sheet.append_row([r["name"], r["score"], r["date"]])
+
     return rows
 
-# ------------------- State Management -------------------
+# ------------------- State Helpers -------------------
 def reset_state():
-    st.session_state.update({
-        "input_name": "",
-        "players": [],
-        "scores": {},
-        "stage": 0,
-        "started": False,
-        "answered": False,
-        "answered_flags": {},
-        "scores_uploaded": False,
-        "leaderboard_data": [],
-    })
+    for k in [
+        "input_name",
+        "players",
+        "scores",
+        "stage",
+        "started",
+        "scores_uploaded",
+        "leaderboard_data",
+    ]:
+        if k in st.session_state:
+            del st.session_state[k]
 
 def start_game():
     name = st.session_state.input_name.strip()
     if name:
         st.session_state.players = [name]
         st.session_state.scores = {name: 0}
-        st.session_state.started = True
         st.session_state.stage = 0
-        st.session_state.answered = False
-        st.session_state.answered_flags = {}
+        st.session_state.started = True
         st.session_state.scores_uploaded = False
 
-def submit_answer():
+def submit_answer_and_next():
     stage = st.session_state.stage
     player = st.session_state.players[0]
-    loc = locations[stage]
     choice = st.session_state[f"choice_{stage}"]
-
-    if choice == loc["answer"]:
-        if not st.session_state.answered_flags.get(stage, False):
-            st.session_state.scores[player] += 1
-        st.success("Goed gedaan!")
-    else:
-        st.error("Helaas, dat is niet correct.")
-
-    st.session_state.answered = True
-    st.session_state.answered_flags[stage] = True
-
-def next_question():
+    correct = locations[stage]["answer"]
+    if choice == correct:
+        st.session_state.scores[player] += 1
+    # advance instantly
     st.session_state.stage += 1
-    st.session_state.answered = False
 
-# ------------------- Main -------------------
-# Initialize state
+# ------------------- App -------------------
 if "started" not in st.session_state:
     reset_state()
 
-# Start screen
-if not st.session_state.started:
+# 1) Entry screen
+if not st.session_state.get("started", False):
     st.title("🧭 Van Egypte naar Kanaän")
     st.text_input("Voer je naam in:", key="input_name")
     st.button("Start het spel", key="btn_start", on_click=start_game)
-
-    st.markdown("📄  [Open Google Sheets 🡥](%s)" % GOOGLE_SHEET_URL)
-
+    st.markdown(f"📄  [Open Google Sheets 🡥]({GOOGLE_SHEET_URL})")
     st.stop()
 
-# Gameplay
+# 2) Questions
 stage = st.session_state.stage
 player = st.session_state.players[0]
 
 if stage < len(locations):
     loc = locations[stage]
-    st.header(f"📍 Locatie {stage+1}: {loc['name']} ({player} is aan de beurt)")
+    st.header(f"📍 Locatie {stage+1}: {loc['name']}")
     st.image(Image.open(loc["image"]), use_container_width=True)
     st.subheader(loc["question"])
 
+    # radio with unique key
     st.radio(
         "Kies je antwoord:",
         loc["options"],
         key=f"choice_{stage}"
     )
 
-    if not st.session_state.answered:
-        st.button(
-            "Beantwoord",
-            key=f"btn_answer_{stage}",
-            on_click=submit_answer
-        )
-    else:
-        st.button(
-            "Volgende vraag",
-            key=f"btn_next_{stage}",
-            on_click=next_question
-        )
+    # one-click answer & next
+    st.button(
+        "Beantwoord",
+        key=f"btn_answer_{stage}",
+        on_click=submit_answer_and_next
+    )
 
 else:
-    # End screen
+    # 3) End screen & leaderboard
     st.balloons()
-    st.header("🎉 Jullie hebben Kanaän bereikt!")
-    st.subheader(f"🏆 {player}'s score: {st.session_state.scores[player]} punten
+    score = st.session_state.scores[player]
+    st.header("🎉 Kanaän bereikt!")
+    st.subheader(f"🏆 {player}'s score: {score} punten")
+
+    if not st.session_state.get("scores_uploaded", False):
+        with st.spinner("Scores uploaden..."):
+            lb = update_google_leaderboard(st.session_state.scores)
+        st.session_state.scores_uploaded = True
+        st.session_state.leaderboard_data = lb
+
+    df = pd.DataFrame(st.session_state.leaderboard_data)
+    if not df.empty:
+        st.subheader("🌍 Publiek scorebord")
+        st.table(df)
+
+    st.markdown(f"📄  [Bekijk Google Sheets 🡥]({GOOGLE_SHEET_URL})")
+    st.button("🔁 Opnieuw spelen", on_click=reset_state)
